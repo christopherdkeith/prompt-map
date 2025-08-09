@@ -20,10 +20,10 @@ public class TreePrinterTests
 
         var expected = """
         Root
-         ├─ ProjectA
-         │   ├─ My.Namespace
-         │   │   ├─ Property string Name { get; } [public]
-         │   │   └─ Method void Foo() [public]
+         └─ ProjectA
+             └─ My.Namespace
+                 ├─ Property string Name { get; } [public]
+                 ├─ Method void Foo() [public]
         """.NormalizeLines();
 
         Assert.Equal(expected, text);

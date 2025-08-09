@@ -2,5 +2,5 @@
  └─ (Directory Scan)
      └─ Example
          └─ SampleClass
-             ├─ Property string Name { … } [public]
+             ├─ Property string Name { get; set; } [public]
              ├─ Method void Run(int times) [public]
