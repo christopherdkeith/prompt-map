@@ -1,0 +1,26 @@
+PromptMap
+ └─ PromptMap
+     ├─ <global namespace>
+     │   └─ Program
+     │       ├─ Method Task<int> Main(string[] args) [public]
+     ├─ PromptMap.Cli
+     │   ├─ ArgParser
+     │   │   ├─ Method Options Parse(string[] args) [public]
+     │   │   ├─ Method void PrintHelp(bool error) [public]
+     │   ├─ Node
+     │   │   ├─ Property string Name { get; } [public]
+     │   │   ├─ Property SortedDictionary<string, Node> Children { get; } [public]
+     │   │   ├─ Property List<string> Lines { get; } [public]
+     │   └─ Options
+     │       ├─ Property string? SolutionPath { get; set; } [public]
+     │       ├─ Property string? DirPath { get; set; } [public]
+     │       ├─ Property string? OutPath { get; set; } [public]
+     │       ├─ Property bool IncludePrivate { get; set; } [public]
+     │       ├─ Property bool IncludeCtors { get; set; } [public]
+     ├─ PromptMap.Cli.Analysis
+     │   └─ RoslynWalker
+     │       ├─ Method Task<Node> FromSolutionAsync(string solutionPath, bool includePrivate, bool includeCtors, CancellationToken ct) [public]
+     │       ├─ Method Node FromDirectory(string dirPath, bool includePrivate, bool includeCtors, CancellationToken ct) [public]
+     └─ PromptMap.Cli.Printing
+         └─ TreePrinter
+             ├─ Method string Print(Node root) [public]
