@@ -1,0 +1,6 @@
+﻿Fixtures
+ └─ (Directory Scan)
+     └─ Example
+         └─ SampleClass
+             ├─ Property string Name { … } [public]
+             ├─ Method void Run(int times) [public]

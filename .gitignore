@@ -1,7 +1,47 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
+﻿## Ignore Visual Studio temp files, build results, and cache
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
 
-/.vs
-/bin/Debug/net8.0
-/obj
+## Build results
+bin/
+obj/
+
+## Logs
+*.log
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nuspec
+
+## Rider
+.idea/
+
+## Test results
+TestResult*/
+*.trx
+*.coverage
+*.coveragexml
+
+## Auto-generated
+Generated\ Files/
+launchSettings.json
+
+## OS-specific files
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+## Tooling
+*.swp

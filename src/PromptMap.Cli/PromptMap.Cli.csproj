@@ -5,12 +5,16 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
+	<PropertyGroup>
+		<AssemblyName>PromptMap</AssemblyName>
+		<RootNamespace>PromptMap.Cli</RootNamespace>
+	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Build.Locator" Version="1.9.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.14.0" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Folder Include="examples\" />
+		<InternalsVisibleTo Include="PromptMap.Tests" />
 	</ItemGroup>
 </Project>
