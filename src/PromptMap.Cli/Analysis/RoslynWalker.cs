@@ -11,65 +11,81 @@ namespace PromptMap.Cli.Analysis;
 /// <summary>Builds a <see cref="Node"/> tree by walking Roslyn symbols/syntax.</summary>
 internal static class RoslynWalker
 {
+    public static async Task<Node> FromProjectAsync(
+    string projectPath, bool includePrivate, bool includeCtors, CancellationToken ct)
+    {
+        if (!MSBuildLocator.IsRegistered)
+            MSBuildLocator.RegisterDefaults();
+
+        using var workspace = MSBuildWorkspace.Create();
+        var project = await workspace.OpenProjectAsync(projectPath, cancellationToken: ct);
+
+        // Root is the project itself; reuse the same per-document logic as solution mode.
+        var root = new Node(Path.GetFileNameWithoutExtension(project.FilePath) ?? project.Name);
+        await AnalyzeProjectAsync(project, root, includePrivate, includeCtors, ct);
+        return root;
+    }
+
     public static async Task<Node> FromSolutionAsync(string solutionPath, bool includePrivate, bool includeCtors, CancellationToken ct)
     {
         if (!MSBuildLocator.IsRegistered)
             MSBuildLocator.RegisterDefaults();
 
         using var workspace = MSBuildWorkspace.Create();
-        var solution = await workspace.OpenSolutionAsync(solutionPath, cancellationToken: ct).ConfigureAwait(false);
+        var solution = await workspace.OpenSolutionAsync(solutionPath, cancellationToken: ct);
 
         var root = new Node(Path.GetFileNameWithoutExtension(solution.FilePath) ?? "Solution");
 
         foreach (var project in solution.Projects.Where(p => p.Language == LanguageNames.CSharp))
         {
             ct.ThrowIfCancellationRequested();
-
             var projNode = Get(root, project.Name);
-            var compilation = await project.GetCompilationAsync(ct).ConfigureAwait(false);
-            if (compilation is null) continue;
-
-            var typeMap = new ConcurrentDictionary<string, Node>();
-            var nsMap = new ConcurrentDictionary<string, Node>();
-
-            var docTasks = project.Documents
-                .Where(d => d.SourceCodeKind == SourceCodeKind.Regular &&
-                            (d.FilePath?.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ?? false))
-                .Select(async doc =>
-                {
-                    try
-                    {
-                        var model = await doc.GetSemanticModelAsync(ct).ConfigureAwait(false);
-                        if (model is null) return;
-
-                        var syntax = await doc.GetSyntaxRootAsync(ct).ConfigureAwait(false);
-                        if (syntax is null) return;
-
-                        foreach (var typeDecl in syntax.DescendantNodes().OfType<TypeDeclarationSyntax>())
-                        {
-                            var symbol = model.GetDeclaredSymbol(typeDecl, ct) as INamedTypeSymbol;
-                            if (symbol is null) continue;
-
-                            var ns = symbol.ContainingNamespace?.ToDisplayString() ?? "<global>";
-                            var typeKey = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-
-                            var nsNode = nsMap.GetOrAdd(ns, _ => Get(projNode, ns));
-                            var tNode = typeMap.GetOrAdd(typeKey, _ => Get(nsNode, symbol.Name));
-
-                            AppendMembers(tNode, symbol, includePrivate, includeCtors);
-                        }
-                    }
-                    catch (OperationCanceledException) { }
-                    catch (Exception)
-                    {
-                        // Swallow per-document errors to keep walking; could add verbose flag to log.
-                    }
-                });
-
-            await Task.WhenAll(docTasks).ConfigureAwait(false);
+            await AnalyzeProjectAsync(project, projNode, includePrivate, includeCtors, ct);
         }
 
         return root;
+    }
+
+    private static async Task AnalyzeProjectAsync(Project project, Node projNode, bool includePrivate, bool includeCtors, CancellationToken ct)
+    {
+        var compilation = await project.GetCompilationAsync(ct);
+        if (compilation is null) return;
+
+        var typeMap = new ConcurrentDictionary<string, Node>();
+        var nsMap = new ConcurrentDictionary<string, Node>();
+
+        var docTasks = project.Documents
+            .Where(d => d.SourceCodeKind == SourceCodeKind.Regular &&
+                        (d.FilePath?.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ?? false))
+            .Select(async doc =>
+            {
+                try
+                {
+                    var model = await doc.GetSemanticModelAsync(ct).ConfigureAwait(false);
+                    if (model is null) return;
+
+                    var syntax = await doc.GetSyntaxRootAsync(ct).ConfigureAwait(false);
+                    if (syntax is null) return;
+
+                    foreach (var typeDecl in syntax.DescendantNodes().OfType<TypeDeclarationSyntax>())
+                    {
+                        var symbol = model.GetDeclaredSymbol(typeDecl, ct) as INamedTypeSymbol;
+                        if (symbol is null) continue;
+
+                        var ns = symbol.ContainingNamespace?.ToDisplayString() ?? "<global>";
+                        var typeKey = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+                        var nsNode = nsMap.GetOrAdd(ns, _ => Get(projNode, ns));
+                        var tNode = typeMap.GetOrAdd(typeKey, _ => Get(nsNode, symbol.Name));
+
+                        AppendMembers(tNode, symbol, includePrivate, includeCtors);
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch { /* swallow per-doc errors, optionally log with a verbose flag */ }
+            });
+
+        await Task.WhenAll(docTasks).ConfigureAwait(false);
     }
 
     public static Node FromDirectory(string dirPath, bool includePrivate, bool includeCtors, CancellationToken ct)

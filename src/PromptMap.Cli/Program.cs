@@ -26,6 +26,17 @@ internal static class Program
                 root = await RoslynWalker.FromSolutionAsync(
                     opt.SolutionPath!, opt.IncludePrivate, opt.IncludeCtors, cts.Token).ConfigureAwait(false);
             }
+            else if (!string.IsNullOrWhiteSpace(opt.ProjectPath))
+            {
+                if (!File.Exists(opt.ProjectPath))
+                {
+                    Console.Error.WriteLine($"Project not found: {opt.ProjectPath}");
+                    return 2;
+                }
+
+                root = await RoslynWalker.FromProjectAsync(
+                    opt.ProjectPath!, opt.IncludePrivate, opt.IncludeCtors, cts.Token).ConfigureAwait(false);
+            }
             else
             {
                 if (string.IsNullOrWhiteSpace(opt.DirPath) || !Directory.Exists(opt.DirPath))

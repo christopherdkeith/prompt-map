@@ -5,6 +5,7 @@ namespace PromptMap.Cli;
 internal sealed class Options
 {
     public string? SolutionPath { get; init; }
+    public string? ProjectPath { get; init; }
     public string? DirPath { get; init; }
     public string? OutPath { get; init; }
     public bool IncludePrivate { get; init; }

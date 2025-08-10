@@ -1,6 +1,6 @@
 ﻿# PromptMap
 
-**PromptMap** is a .NET console application that scans a Visual Studio `.sln` file (or a directory of `.cs` files) and generates a structured map of your solution — files, namespaces, classes, methods, and properties.
+**PromptMap** is a .NET console application that scans a Visual Studio `.sln` or `.csproj` file (or a directory of `.cs` files) and generates a structured map of your solution or project — files, namespaces, classes, methods, and properties.
 
 The generated text is designed to be **AI-friendly**, so you can paste it into ChatGPT (or any other coding assistant) to give it detailed context about your project before asking questions.
 
@@ -8,7 +8,7 @@ The generated text is designed to be **AI-friendly**, so you can paste it into C
 
 ## Features
 
-- Parse `.sln` or directory recursively
+- Parse `.sln` or `.csproj` or directory recursively
 - Map namespaces, classes, methods, and properties
 - Options to include private members and constructors
 - Output to a file or standard output
@@ -32,8 +32,9 @@ dotnet build
 ## Usage
 
 ```bash
-promptmap --solution <path-to.sln> [options]
-promptmap --dir <path-to-directory> [options]
+promptmap --solution <path-to.sln>    [options]
+promptmap --project  <path-to.csproj> [options]
+promptmap --dir      <path-to-folder> [options]
 ```
 
 ---
@@ -44,6 +45,7 @@ promptmap --dir <path-to-directory> [options]
 | Option              | Description                        |
 | ------------------- | ---------------------------------- |
 | `--solution <path>` | Path to `.sln` file                |
+| `--project <path>`  | Path to `.csproj` file             |
 | `--dir <path>`      | Path to directory to scan          |
 | `--out <path>`      | Output file path (default: stdout) |
 | `--include-private` | Include private members            |

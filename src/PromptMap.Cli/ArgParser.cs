@@ -1,4 +1,6 @@
 ﻿#nullable enable
+using System.Text;
+
 namespace PromptMap.Cli;
 
 /// <summary>Minimal argument parser (no external deps) with help text.</summary>
@@ -6,7 +8,10 @@ internal static class ArgParser
 {
     public static Options Parse(string[] args)
     {
-        string? sol = null, dir = null, outp = null;
+        string? sol = null;
+        string? proj = null;
+        string? dir = null;
+        string? outp = null;
         bool includePrivate = false, includeCtors = false;
 
         for (int i = 0; i < args.Length; i++)
@@ -14,6 +19,7 @@ internal static class ArgParser
             switch (args[i])
             {
                 case "--solution": sol = Next(args, ref i); break;
+                case "--project": proj = Next(args, ref i); break;
                 case "--dir": dir = Next(args, ref i); break;
                 case "--out": outp = Next(args, ref i); break;
                 case "--include-private": includePrivate = true; break;
@@ -26,12 +32,14 @@ internal static class ArgParser
             }
         }
 
-        if (sol is null && dir is null)
-            throw new ArgumentException("Either --solution or --dir is required.");
+        var specified = new[] { sol, proj, dir }.Count(x => !string.IsNullOrWhiteSpace(x));
+        if (specified != 1)
+            throw new ArgumentException("Use exactly one of --solution, --project, or --dir.");
 
         return new Options
         {
             SolutionPath = sol,
+            ProjectPath = proj,
             DirPath = dir,
             OutPath = outp,
             IncludePrivate = includePrivate,
@@ -42,14 +50,16 @@ internal static class ArgParser
     public static void PrintHelp(bool error = false)
     {
         var text = """
-PromptMap — Map .NET solutions/directories into AI-friendly text.
+PromptMap — Map .NET solutions/projects/directories into AI-friendly text.
 
 Usage:
-  promptmap --solution <path-to.sln> [--out map.txt] [--include-private] [--include-ctors]
-  promptmap --dir <path-to-folder>  [--out map.txt] [--include-private] [--include-ctors]
+  promptmap --solution <path-to.sln>   [--out map.txt] [--include-private] [--include-ctors]
+  promptmap --project  <path-to.csproj>[--out map.txt] [--include-private] [--include-ctors]
+  promptmap --dir      <path-to-folder>[--out map.txt] [--include-private] [--include-ctors]
 
 Options:
   --solution           Path to a .sln file
+  --project            Path to a .csproj file
   --dir                Directory to scan (recursive)
   --out                Output file path (defaults to stdout)
   --include-private    Include private members
