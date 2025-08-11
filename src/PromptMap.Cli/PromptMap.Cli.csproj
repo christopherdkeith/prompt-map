@@ -4,17 +4,31 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-	</PropertyGroup>
-	<PropertyGroup>
+
+		<!-- Keep your existing names -->
 		<AssemblyName>PromptMap</AssemblyName>
 		<RootNamespace>PromptMap.Cli</RootNamespace>
+
+		<!-- Roslyn/MSBuild rely on reflection, so don't trim -->
+		<PublishTrimmed>false</PublishTrimmed>
+
+		<!-- Optional: convenient RIDs if you publish single-file binaries -->
+		<RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
 	</PropertyGroup>
+
 	<ItemGroup>
+		<!-- Reference the reusable engine -->
+		<ProjectReference Include="..\PromptMap.Core\PromptMap.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- CLI-only: open .sln/.csproj via MSBuild -->
 		<PackageReference Include="Microsoft.Build.Locator" Version="1.9.1" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.14.0" />
 	</ItemGroup>
+
 	<ItemGroup>
+		<!-- Keep tests able to see CLI internals like ArgParser -->
 		<InternalsVisibleTo Include="PromptMap.Tests" />
 	</ItemGroup>
 </Project>

@@ -1,10 +1,10 @@
 ﻿#nullable enable
 using System.Text;
 
-namespace PromptMap.Cli.Printing;
+namespace PromptMap.Core.Printing;
 
 /// <summary>Renders a <see cref="Node"/> tree into the ASCII layout used in examples.</summary>
-internal static class TreePrinter
+public static class TreePrinter
 {
     public static string Print(Node root)
     {

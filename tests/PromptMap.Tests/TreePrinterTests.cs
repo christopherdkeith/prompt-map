@@ -1,5 +1,5 @@
-﻿using PromptMap.Cli;
-using PromptMap.Cli.Printing;
+﻿using PromptMap.Core;
+using PromptMap.Core.Printing;
 using PromptMap.Tests.Helpers;
 using Xunit;
 

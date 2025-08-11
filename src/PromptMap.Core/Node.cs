@@ -1,12 +1,14 @@
 ﻿#nullable enable
-namespace PromptMap.Cli;
+using System.Collections.Generic;
+
+namespace PromptMap.Core;
 
 /// <summary>Tree node representing solution > project > namespace > type > members.</summary>
-internal sealed class Node
+public sealed class Node
 {
     public string Name { get; }
-    public SortedDictionary<string, Node> Children { get; } = new();
-    public List<string> Lines { get; } = new();
+    public SortedDictionary<string, Node> Children { get; } = [];
+    public List<string> Lines { get; } = [];
 
     public Node(string name) => Name = name;
 }
