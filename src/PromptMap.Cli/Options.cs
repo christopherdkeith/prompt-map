@@ -10,4 +10,5 @@ internal sealed class Options
     public string? OutPath { get; init; }
     public bool IncludePrivate { get; init; }
     public bool IncludeCtors { get; init; }
+    public bool Verbose { get; init; }
 }

@@ -12,6 +12,8 @@ internal static class Program
         {
             var opt = ArgParser.Parse(args);
 
+            WorkspaceLoader.Log = opt.Verbose ? Console.Error.WriteLine : null;
+
             using var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
