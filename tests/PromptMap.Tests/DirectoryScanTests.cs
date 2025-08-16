@@ -1,5 +1,5 @@
-﻿using PromptMap.Cli.Analysis;
-using PromptMap.Cli.Printing;
+﻿using PromptMap.Core.Analysis;
+using PromptMap.Core.Printing;
 using Xunit;
 
 namespace PromptMap.Tests;
@@ -20,7 +20,7 @@ public class DirectoryScanTests
         """;
         File.WriteAllText(Path.Combine(tmp.Path, "SampleClass.cs"), code);
 
-        var root = RoslynWalker.FromDirectory(tmp.Path, includePrivate: false, includeCtors: false, default);
+        var root = RoslynMapper.MapDirectory(tmp.Path, includePrivate: false, includeCtors: false, default);
         var output = TreePrinter.Print(root);
 
         Assert.Contains("SampleClass", output);

@@ -1,7 +1,8 @@
 ﻿#nullable enable
 using PromptMap.Cli;
-using PromptMap.Cli.Analysis;
-using PromptMap.Cli.Printing;
+using PromptMap.Core;
+using PromptMap.Core.Analysis;
+using PromptMap.Core.Printing;
 
 internal static class Program
 {
@@ -11,10 +12,13 @@ internal static class Program
         {
             var opt = ArgParser.Parse(args);
 
+            WorkspaceLoader.Log = opt.Verbose ? Console.Error.WriteLine : null;
+
             using var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
             Node root;
+
             if (!string.IsNullOrWhiteSpace(opt.SolutionPath))
             {
                 if (!File.Exists(opt.SolutionPath))
@@ -23,8 +27,11 @@ internal static class Program
                     return 2;
                 }
 
-                root = await RoslynWalker.FromSolutionAsync(
-                    opt.SolutionPath!, opt.IncludePrivate, opt.IncludeCtors, cts.Token).ConfigureAwait(false);
+                // Open the solution in a workspace and map via Core
+                root = await WorkspaceLoader.WithSolutionAsync(
+                    opt.SolutionPath!,
+                    sln => RoslynMapper.MapSolutionAsync(sln, opt.IncludePrivate, opt.IncludeCtors, cts.Token),
+                    cts.Token).ConfigureAwait(false);
             }
             else if (!string.IsNullOrWhiteSpace(opt.ProjectPath))
             {
@@ -34,8 +41,11 @@ internal static class Program
                     return 2;
                 }
 
-                root = await RoslynWalker.FromProjectAsync(
-                    opt.ProjectPath!, opt.IncludePrivate, opt.IncludeCtors, cts.Token).ConfigureAwait(false);
+                // Open the project in a workspace and map via Core
+                root = await WorkspaceLoader.WithProjectAsync(
+                    opt.ProjectPath!,
+                    proj => RoslynMapper.MapProjectAsync(proj, opt.IncludePrivate, opt.IncludeCtors, cts.Token),
+                    cts.Token).ConfigureAwait(false);
             }
             else
             {
@@ -45,7 +55,8 @@ internal static class Program
                     return 2;
                 }
 
-                root = RoslynWalker.FromDirectory(
+                // Directory mode doesn't need MSBuild
+                root = RoslynMapper.MapDirectory(
                     opt.DirPath!, opt.IncludePrivate, opt.IncludeCtors, cts.Token);
             }
 

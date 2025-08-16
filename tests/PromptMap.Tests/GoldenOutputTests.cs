@@ -1,5 +1,5 @@
-﻿using PromptMap.Cli.Analysis;
-using PromptMap.Cli.Printing;
+﻿using PromptMap.Core.Analysis;
+using PromptMap.Core.Printing;
 using PromptMap.Tests.Helpers;
 using Xunit;
 
@@ -13,7 +13,7 @@ public class GoldenOutputTests
         var rootDir = TestPaths.RepoRoot();
         var fixtureDir = Path.Combine(rootDir, "tests", "PromptMap.Tests", "Fixtures");
 
-        var root = RoslynWalker.FromDirectory(fixtureDir, includePrivate: false, includeCtors: false, default);
+        var root = RoslynMapper.MapDirectory(fixtureDir, includePrivate: false, includeCtors: false, default);
         var actual = TreePrinter.Print(root).NormalizeLines();
 
         var expectedPath = Path.Combine(fixtureDir, "ExpectedDirectoryScan.txt");

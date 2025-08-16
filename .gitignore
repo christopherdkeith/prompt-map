@@ -45,3 +45,5 @@ Desktop.ini
 
 ## Tooling
 *.swp
+/promptmap.txt
+/promptmap_commands.txt

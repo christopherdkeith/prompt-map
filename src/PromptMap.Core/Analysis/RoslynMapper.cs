@@ -1,46 +1,84 @@
 ﻿#nullable enable
-using System.Collections.Concurrent;
-using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.MSBuild;
+using System;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace PromptMap.Cli.Analysis;
+namespace PromptMap.Core.Analysis;
 
-/// <summary>Builds a <see cref="Node"/> tree by walking Roslyn symbols/syntax.</summary>
-internal static class RoslynWalker
+/// <summary>
+/// Maps Roslyn objects (Solution/Project/Syntax) into a <see cref="Node"/> tree.
+/// Core contains no MSBuild/VS workspace loading; callers pass Roslyn objects in.
+/// </summary>
+public static class RoslynMapper
 {
-    public static async Task<Node> FromProjectAsync(
-    string projectPath, bool includePrivate, bool includeCtors, CancellationToken ct)
+    public static async Task<Node> MapSolutionAsync(Solution solution, bool includePrivate, bool includeCtors, CancellationToken ct)
     {
-        if (!MSBuildLocator.IsRegistered)
-            MSBuildLocator.RegisterDefaults();
-
-        using var workspace = MSBuildWorkspace.Create();
-        var project = await workspace.OpenProjectAsync(projectPath, cancellationToken: ct);
-
-        // Root is the project itself; reuse the same per-document logic as solution mode.
-        var root = new Node(Path.GetFileNameWithoutExtension(project.FilePath) ?? project.Name);
-        await AnalyzeProjectAsync(project, root, includePrivate, includeCtors, ct);
-        return root;
-    }
-
-    public static async Task<Node> FromSolutionAsync(string solutionPath, bool includePrivate, bool includeCtors, CancellationToken ct)
-    {
-        if (!MSBuildLocator.IsRegistered)
-            MSBuildLocator.RegisterDefaults();
-
-        using var workspace = MSBuildWorkspace.Create();
-        var solution = await workspace.OpenSolutionAsync(solutionPath, cancellationToken: ct);
-
         var root = new Node(Path.GetFileNameWithoutExtension(solution.FilePath) ?? "Solution");
 
         foreach (var project in solution.Projects.Where(p => p.Language == LanguageNames.CSharp))
         {
             ct.ThrowIfCancellationRequested();
             var projNode = Get(root, project.Name);
-            await AnalyzeProjectAsync(project, projNode, includePrivate, includeCtors, ct);
+            await AnalyzeProjectAsync(project, projNode, includePrivate, includeCtors, ct).ConfigureAwait(false);
+        }
+
+        return root;
+    }
+
+    public static async Task<Node> MapProjectAsync(Project project, bool includePrivate, bool includeCtors, CancellationToken ct)
+    {
+        var root = new Node(Path.GetFileNameWithoutExtension(project.FilePath) ?? project.Name);
+        await AnalyzeProjectAsync(project, root, includePrivate, includeCtors, ct).ConfigureAwait(false);
+        return root;
+    }
+
+    /// <summary>
+    /// Directory scan mode (no MSBuild). Parses .cs files and maps by syntax
+    /// with best-effort semantic info when available.
+    /// </summary>
+    public static Node MapDirectory(
+        string dirPath, bool includePrivate, bool includeCtors, CancellationToken ct)
+    {
+        var root = new Node(new DirectoryInfo(dirPath).Name);
+        var projNode = Get(root, "(Directory Scan)");
+
+        var files = Directory.EnumerateFiles(dirPath, "*.cs", SearchOption.AllDirectories)
+            .Where(p =>
+                !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar) &&
+                !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) &&
+                !p.Contains(Path.DirectorySeparatorChar + ".vs" + Path.DirectorySeparatorChar) &&
+                !p.Contains(Path.DirectorySeparatorChar + "node_modules" + Path.DirectorySeparatorChar));
+
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var text = File.ReadAllText(file);
+            var tree = CSharpSyntaxTree.ParseText(text, cancellationToken: ct);
+            var rootNode = tree.GetRoot(ct);
+
+            // Lightweight compilation for basic symbols; falls back to syntax-only if needed.
+            var compilation = CSharpCompilation.Create("scan").AddSyntaxTrees(tree);
+            var model = compilation.GetSemanticModel(tree, ignoreAccessibility: true);
+
+            foreach (var typeDecl in rootNode.DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                var symbol = model.GetDeclaredSymbol(typeDecl, ct) as INamedTypeSymbol;
+                var ns = symbol?.ContainingNamespace?.ToDisplayString() ?? GuessNamespace(typeDecl) ?? "<global>";
+                var nsNode = Get(projNode, ns);
+                var tNode = Get(nsNode, typeDecl.Identifier.Text);
+
+                if (symbol is not null)
+                    AppendMembers(tNode, symbol, includePrivate, includeCtors);
+                else
+                    AppendMembersSyntaxOnly(tNode, typeDecl, includePrivate, includeCtors);
+            }
         }
 
         return root;
@@ -48,7 +86,7 @@ internal static class RoslynWalker
 
     private static async Task AnalyzeProjectAsync(Project project, Node projNode, bool includePrivate, bool includeCtors, CancellationToken ct)
     {
-        var compilation = await project.GetCompilationAsync(ct);
+        var compilation = await project.GetCompilationAsync(ct).ConfigureAwait(false);
         if (compilation is null) return;
 
         var typeMap = new ConcurrentDictionary<string, Node>();
@@ -81,50 +119,11 @@ internal static class RoslynWalker
                         AppendMembers(tNode, symbol, includePrivate, includeCtors);
                     }
                 }
-                catch (OperationCanceledException) { }
-                catch { /* swallow per-doc errors, optionally log with a verbose flag */ }
+                catch (OperationCanceledException) { /* fine */ }
+                catch { /* swallow per-doc to keep walking; add verbose flag later */ }
             });
 
         await Task.WhenAll(docTasks).ConfigureAwait(false);
-    }
-
-    public static Node FromDirectory(string dirPath, bool includePrivate, bool includeCtors, CancellationToken ct)
-    {
-        var root = new Node(new DirectoryInfo(dirPath).Name);
-        var projNode = Get(root, "(Directory Scan)");
-
-        var files = Directory.EnumerateFiles(dirPath, "*.cs", SearchOption.AllDirectories)
-            .Where(p =>
-                !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar) &&
-                !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) &&
-                !p.Contains(Path.DirectorySeparatorChar + ".vs" + Path.DirectorySeparatorChar) &&
-                !p.Contains(Path.DirectorySeparatorChar + "node_modules" + Path.DirectorySeparatorChar));
-
-        foreach (var file in files)
-        {
-            ct.ThrowIfCancellationRequested();
-
-            var text = File.ReadAllText(file);
-            var tree = CSharpSyntaxTree.ParseText(text, cancellationToken: ct);
-            var rootNode = tree.GetRoot(ct);
-            var compilation = CSharpCompilation.Create("scan").AddSyntaxTrees(tree);
-            var model = compilation.GetSemanticModel(tree, ignoreAccessibility: true);
-
-            foreach (var typeDecl in rootNode.DescendantNodes().OfType<TypeDeclarationSyntax>())
-            {
-                var symbol = model.GetDeclaredSymbol(typeDecl, ct) as INamedTypeSymbol;
-                var ns = symbol?.ContainingNamespace?.ToDisplayString() ?? GuessNamespace(typeDecl) ?? "<global>";
-                var nsNode = Get(projNode, ns);
-                var tNode = Get(nsNode, typeDecl.Identifier.Text);
-
-                if (symbol is not null)
-                    AppendMembers(tNode, symbol, includePrivate, includeCtors);
-                else
-                    AppendMembersSyntaxOnly(tNode, typeDecl, includePrivate, includeCtors);
-            }
-        }
-
-        return root;
     }
 
     private static void AppendMembers(Node tNode, INamedTypeSymbol type, bool includePrivate, bool includeCtors)

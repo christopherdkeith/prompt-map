@@ -12,7 +12,9 @@ internal static class ArgParser
         string? proj = null;
         string? dir = null;
         string? outp = null;
-        bool includePrivate = false, includeCtors = false;
+        bool includePrivate = false;
+        bool includeCtors = false;
+        bool verbose = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -24,6 +26,9 @@ internal static class ArgParser
                 case "--out": outp = Next(args, ref i); break;
                 case "--include-private": includePrivate = true; break;
                 case "--include-ctors": includeCtors = true; break;
+                case "--verbose":
+                case "-v":
+                    verbose = true; break;
                 case "-h":
                 case "--help":
                     PrintHelp(); Environment.Exit(0); break;
@@ -43,7 +48,8 @@ internal static class ArgParser
             DirPath = dir,
             OutPath = outp,
             IncludePrivate = includePrivate,
-            IncludeCtors = includeCtors
+            IncludeCtors = includeCtors,
+            Verbose = verbose
         };
     }
 
@@ -64,6 +70,7 @@ Options:
   --out                Output file path (defaults to stdout)
   --include-private    Include private members
   --include-ctors      Include constructors
+  --verbose, -v        Print MSBuild workspace diagnostics
   -h, --help           Show help and exit
 """;
         (error ? Console.Error : Console.Out).WriteLine(text);
